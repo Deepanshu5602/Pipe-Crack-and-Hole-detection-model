@@ -1,0 +1,42 @@
+import cv2
+
+# Define the scale or resolution of the image (pixels per unit length)
+# For example, if 1 pixel = 0.1 mm, scale = 0.1
+scale = 0.26458333 # Change this according to your image resolution
+
+def detect_cracks_best(image):
+    blur = cv2.medianBlur(image, 7)
+    gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 3)
+
+    canny = cv2.Canny(thresh, 120, 255, 1)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    opening = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
+    dilate = cv2.dilate(opening, kernel, iterations=2)
+
+    cnts = cv2.findContours(dilate, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+
+    min_area = 3000
+    for c in cnts:
+        area = cv2.contourArea(c)
+        if area > min_area:
+            cv2.drawContours(image, [c], -1, (36, 255, 12), 2)
+            # Calculate dimensions of the bounding rectangle
+            x, y, w, h = cv2.boundingRect(c)
+            # Convert area to square millimeters
+            area_mm2 = area * (scale ** 2)
+            # Draw text indicating area in both square pixels and square millimeters
+            cv2.putText(image, f"Area: {area} pixels", (x, y - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.putText(image, f"Area: {area_mm2:.2f} mm^2", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.putText(image, f"Dimensions: {w}x{h} pixels", (x, y - 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+    return image
+
+# Example usage:
+# Load an image
+image = cv2.imread("0005.jpg")
+# Detect cracks and display area
+result_image = detect_cracks_best(image)
+# Display the result
+cv2.imwrite('crack_result_best3.jpg', result_image)
